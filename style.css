@@ -1,0 +1,169 @@
+:root {
+  /* color */
+  --color-bg: #f5f6f8;
+  --color-surface: #fff;
+  --color-text: #1c2330;
+  --color-muted: #5d6675;
+  --color-border: #d5d9e0;
+  --color-accent: #2557d6;
+  --color-danger: #c0262d;
+  --color-pin-bg: #fff6d6;
+  --color-pin-border: #e6c84f;
+  --color-focus: #f5a623;
+  --color-on-fill: #fff;
+
+  /* space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 48px;
+  --space-7: 64px;
+
+  /* size */
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --field-min-width: 140px;
+  --page-max-width: 860px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, "Malgun Gothic", sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+/* ---- site-header ---- */
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.site-header__title { margin: 0; font-size: 1.25rem; }
+.site-header__link { margin-left: var(--space-4); color: var(--color-accent); }
+
+/* ---- page / section ---- */
+.page {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+}
+.section { margin-bottom: var(--space-6); }
+.section__title { font-size: 1.15rem; }
+
+/* ---- form ---- */
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-3);
+}
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--field-min-width);
+}
+.form__field--wide { flex: 1 1 100%; }
+.form__field--inline { flex-direction: row; align-items: center; min-width: 0; gap: var(--space-2); }
+.form__label { font-size: 0.85rem; color: var(--color-muted); }
+.form__input {
+  padding: var(--space-2);
+  font: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+}
+.form__error {
+  flex: 1 1 100%;
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+.form__error--field { flex: none; }
+.form__input[aria-invalid="true"] { border-color: var(--color-danger); }
+
+/* ---- button ---- */
+.button {
+  padding: var(--space-2) var(--space-4);
+  font: inherit;
+  color: var(--color-on-fill);
+  background: var(--color-accent);
+  border: 0;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+}
+.button--secondary { background: var(--color-muted); }
+.button--danger {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.85rem;
+  background: var(--color-danger);
+}
+
+/* 포커스 링 유지: outline 제거 금지 */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ---- card ---- */
+.card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.card {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-3);
+}
+.card--pinned { background: var(--color-pin-bg); border-color: var(--color-pin-border); }
+.card__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.card__title { margin: 0; font-size: 1rem; }
+.card__body { margin: var(--space-2) 0; white-space: pre-wrap; }
+.card__meta { color: var(--color-muted); font-size: 0.85rem; }
+
+/* ---- badge / empty ---- */
+.badge {
+  margin-right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  background: var(--color-pin-border);
+  border-radius: var(--radius-1);
+}
+.empty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-3);
+}
+
+/* ---- 모바일 360px ---- */
+@media (max-width: 480px) {
+  .site-header { padding: var(--space-3) var(--space-4); }
+  .form__field { flex: 1 1 100%; }
+  .form__field--inline { flex: 1 1 100%; }
+}

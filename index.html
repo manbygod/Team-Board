@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>팀 보드</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-header__title">팀 보드</h1>
+    <nav class="site-header__nav" aria-label="섹션 이동">
+      <a class="site-header__link" href="#announcements">공지</a>
+      <a class="site-header__link" href="#reservations">회의실 예약</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="section" id="announcements" aria-labelledby="ann-heading">
+      <h2 class="section__title" id="ann-heading">팀 공지 게시판</h2>
+
+      <form class="form" id="ann-form" novalidate>
+        <div class="form__field">
+          <label class="form__label" for="ann-title">제목</label>
+          <input class="form__input" id="ann-title" name="title" type="text" required maxlength="80" aria-label="공지 제목" aria-describedby="ann-title-error">
+          <p class="form__error form__error--field" id="ann-title-error" role="alert"></p>
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="ann-author">작성자</label>
+          <input class="form__input" id="ann-author" name="author" type="text" required maxlength="30" aria-label="공지 작성자" aria-describedby="ann-author-error">
+          <p class="form__error form__error--field" id="ann-author-error" role="alert"></p>
+        </div>
+        <div class="form__field form__field--wide">
+          <label class="form__label" for="ann-body">본문</label>
+          <textarea class="form__input" id="ann-body" name="body" rows="3" required aria-label="공지 본문" aria-describedby="ann-body-error"></textarea>
+          <p class="form__error form__error--field" id="ann-body-error" role="alert"></p>
+        </div>
+        <div class="form__field form__field--inline">
+          <input id="ann-pinned" name="pinned" type="checkbox" aria-label="상단 고정">
+          <label class="form__label" for="ann-pinned">상단 고정</label>
+        </div>
+        <button class="button" type="submit" aria-label="공지 등록">등록</button>
+      </form>
+
+      <ul class="card-list" id="ann-list" aria-live="polite"></ul>
+    </section>
+
+    <section class="section" id="reservations" aria-labelledby="res-heading">
+      <h2 class="section__title" id="res-heading">회의실 예약 보드</h2>
+
+      <form class="form" id="res-form" novalidate>
+        <div class="form__field">
+          <label class="form__label" for="res-room">회의실</label>
+          <select class="form__input" id="res-room" name="roomId" required aria-label="예약할 회의실"></select>
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="res-date">날짜</label>
+          <input class="form__input" id="res-date" name="date" type="date" required aria-label="예약 날짜">
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="res-start">시작</label>
+          <input class="form__input" id="res-start" name="start" type="time" required aria-label="시작 시간">
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="res-end">종료</label>
+          <input class="form__input" id="res-end" name="end" type="time" required aria-label="종료 시간">
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="res-owner">예약자</label>
+          <input class="form__input" id="res-owner" name="owner" type="text" required maxlength="30" aria-label="예약자 이름">
+        </div>
+        <p class="form__error" id="res-error" aria-live="assertive" aria-atomic="true"></p>
+        <button class="button" type="submit" aria-label="예약 등록">예약</button>
+      </form>
+
+      <div class="form form--filters" role="group" aria-label="예약 필터">
+        <div class="form__field">
+          <label class="form__label" for="filter-date">날짜 필터</label>
+          <input class="form__input" id="filter-date" type="date" aria-label="날짜로 필터">
+        </div>
+        <div class="form__field">
+          <label class="form__label" for="filter-room">회의실 필터</label>
+          <select class="form__input" id="filter-room" aria-label="회의실로 필터"></select>
+        </div>
+        <button class="button button--secondary" type="button" id="filter-reset" aria-label="필터 초기화">초기화</button>
+      </div>
+
+      <ul class="card-list" id="res-list" aria-live="polite"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
