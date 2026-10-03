@@ -27,10 +27,11 @@ python -m http.server 8000
 ### Firebase 설정 (무료 Spark 플랜, 카드 불필요)
 1. https://console.firebase.google.com 에서 프로젝트 생성 (Analytics는 꺼도 됨)
 2. 프로젝트 설정 → 내 앱 → 웹(`</>`) 앱 등록 → 표시되는 `firebaseConfig` 값 복사
-3. Build → Firestore Database → 데이터베이스 만들기 (프로덕션 모드, 가까운 리전 예: `asia-northeast3` 서울)
-4. Firestore → 규칙 탭에 이 폴더의 `firestore.rules` 내용을 붙여넣고 게시
-5. `app.js`의 `const FIREBASE_CONFIG = null;`을 복사한 설정(`apiKey`, `authDomain`, `projectId`, `appId`)으로 교체 → push
-6. 첫 방문 시 `data/*.csv`가 Firestore에 한 번만 시드됨 (`meta/seed` 문서로 표시)
+3. Product categories → Databases & Storage → Firestore 
+4. Build → Firestore Database → 데이터베이스 만들기 (프로덕션 모드, 가까운 리전 예: `asia-northeast3` 서울)
+5. Firestore → 규칙 탭에 이 폴더의 `firestore.rules` 내용을 붙여넣고 게시
+6. `app.js`의 `const FIREBASE_CONFIG = null;`을 복사한 설정(`apiKey`, `authDomain`, `projectId`, `appId`)으로 교체 → push
+7. 첫 방문 시 `data/*.csv`가 Firestore에 한 번만 시드됨 (`meta/seed` 문서로 표시)
 
 ### 보안 한계
 로그인이 없는 공개 데모라서, 사이트 주소를 아는 누구나 공지·예약을 읽고 만들고 삭제할 수 있습니다. 규칙은 입력 형식·길이만 검증합니다(수정은 불가). 웹 `apiKey`는 공개돼도 되는 값입니다. 무료 Spark 플랜에는 사용량 이메일 알림이 없으므로, 가끔 Firebase 콘솔 → Firestore Database → **사용량** 탭에서 읽기·쓰기 횟수를 확인하세요. 일일 무료 한도를 넘으면 요금이 청구되지 않고 그날은 서비스가 제한됩니다(결제 카드가 필요한 Blaze 플랜으로 올리지 않는 한 과금 없음). 남용이 문제가 되면 Firebase Auth나 App Check 도입을 검토하세요. 중요한 데이터는 넣지 마세요.
