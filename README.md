@@ -20,6 +20,21 @@ python -m http.server 8000
 ['tb_announcements', 'tb_reservations', 'tb_rooms', 'tb_schema_v'].forEach((k) => localStorage.removeItem(k));
 ```
 
+## 데이터 저장 방식 (Firebase 연결)
+- `app.js`의 `FIREBASE_CONFIG`가 `null`이면 **localStorage 모드**입니다. 데이터가 그 브라우저·기기에만 저장되어 PC와 아이폰이 서로 보이지 않습니다.
+- `FIREBASE_CONFIG`를 채우면 **Firebase Firestore 공유 DB 모드**로 동작해 모든 기기가 같은 데이터를 봅니다. 연결에 실패하면 자동으로 로컬 모드로 돌아가며, 화면 상단에 현재 모드가 표시됩니다.
+
+### Firebase 설정 (무료 Spark 플랜, 카드 불필요)
+1. https://console.firebase.google.com 에서 프로젝트 생성 (Analytics는 꺼도 됨)
+2. 프로젝트 설정 → 내 앱 → 웹(`</>`) 앱 등록 → 표시되는 `firebaseConfig` 값 복사
+3. Build → Firestore Database → 데이터베이스 만들기 (프로덕션 모드, 가까운 리전 예: `asia-northeast3` 서울)
+4. Firestore → 규칙 탭에 이 폴더의 `firestore.rules` 내용을 붙여넣고 게시
+5. `app.js`의 `const FIREBASE_CONFIG = null;`을 복사한 설정(`apiKey`, `authDomain`, `projectId`, `appId`)으로 교체 → push
+6. 첫 방문 시 `data/*.csv`가 Firestore에 한 번만 시드됨 (`meta/seed` 문서로 표시)
+
+### 보안 한계
+로그인이 없는 공개 데모라서, 사이트 주소를 아는 누구나 공지·예약을 읽고 만들고 삭제할 수 있습니다. 규칙은 입력 형식·길이만 검증합니다(수정은 불가). 웹 `apiKey`는 공개돼도 되는 값이지만, 대량 쓰기를 막으려면 Firebase 콘솔에서 사용량 알림을 설정하세요. 중요한 데이터는 넣지 마세요.
+
 ## GitHub Pages 배포 메모
 빌드가 없는 정적 사이트라 GitHub Actions는 필요 없습니다. 브랜치 배포만 사용하세요.
 
@@ -27,11 +42,11 @@ python -m http.server 8000
 2. Settings → Pages → Build and deployment → Source: **Deploy from a branch** → 브랜치(`main`)와 폴더 `/ (root)` (또는 `/docs`) 선택 → Save
 3. 잠시 후 `https://<user>.github.io/<repo>/` 로 접속 (첫 화면이 `/`)
 4. 모든 경로는 선행 `/` 없는 상대경로(`style.css`, `app.js`, `data/*.csv`)라 `/<repo>/` 하위 경로에서도 동작
-5. CSV 수정 후에는 브라우저 localStorage에 이미 데이터가 있으면 반영되지 않음(시드는 최초 1회)
+5. CSV 수정 후에는 이미 시드된 데이터(localStorage 또는 Firestore)에는 반영되지 않음(시드는 최초 1회)
 
 ### 배포 확인 체크리스트
 - [ ] `https://<user>.github.io/<repo>/` 첫 화면이 열리고 스타일(`style.css`)이 적용된다
-- [ ] 개발자도구 Network 탭에서 `app.js`, `style.css`, `data/*.csv` 가 모두 200이다 (404 없음)
-- [ ] 공지·예약 목록이 보이고(CSV 시드 로드), 새로고침해도 유지된다
-- [ ] 콘솔 에러가 0건이다 (favicon 404 포함)
-- [ ] 다른 기기/시크릿 창에서 강력 새로고침(Ctrl+Shift+R) 후에도 동일하게 동작한다
+- [x] 개발자도구 Network 탭에서 `app.js`, `style.css`, `data/*.csv` 가 모두 200이다 (404 없음)
+- [x] 공지·예약 목록이 보이고(CSV 시드 로드), 새로고침해도 유지된다
+- [x] 콘솔 에러가 0건이다 (favicon 404 포함)
+- [x] 다른 기기/시크릿 창에서 강력 새로고침(Ctrl+Shift+R) 후에도 동일하게 동작한다

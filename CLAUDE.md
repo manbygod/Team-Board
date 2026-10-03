@@ -7,6 +7,11 @@
 - 브라우저 저장소 키: `tb_announcements`, `tb_reservations`, `tb_rooms`, `tb_schema_v`(선택 마이그레이션 버전 문자열). 모든 키에 `tb_` 접두사 필수(github.io 계정 단위로 localStorage 공유되어 다른 프로젝트와 충돌 방지).
 - 시간은 동일 영업일 안에서만: `HH:mm` 문자열 또는 분 단위 정수 변환 규약을 명시 후 일관되게 적용한다.
 
+## 데이터 계층
+- `app.js`의 백엔드는 `LocalBackend`(localStorage) / `CloudBackend`(Firestore) 교체형이며 인터페이스는 `subscribe/put/remove`로 동일하다.
+- 상태는 항상 `subscribe` 콜백으로만 갱신하고 Render를 호출한다 (Actions에서 state를 직접 변경하지 않는다).
+- `FIREBASE_CONFIG`가 `null`이면 로컬 모드, 연결 실패 시 로컬로 폴백. Firestore 컬렉션: `announcements`, `reservations`, `rooms`, `meta`. 규칙은 `firestore.rules`.
+
 ## HTML
 - `section/article/nav` 우선 사용. 라벨-입력 매핑 필수.
 

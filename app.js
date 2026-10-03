@@ -91,6 +91,131 @@
     }
   };
 
+  /* ---------- 백엔드 (Local / Cloud 교체 가능) ---------- */
+  // 공통 인터페이스: subscribe(name, cb) · put(name, item) · remove(name, id)
+  // name: 'rooms' | 'announcements' | 'reservations'. 데이터 변경은 항상 subscribe 콜백으로 돌아와 render 된다.
+
+  // Firebase 웹 앱 설정(콘솔 → 프로젝트 설정 → 내 앱). null 이면 localStorage(이 기기 전용) 모드로 동작한다.
+  // 웹 apiKey 는 비밀값이 아니며, 접근 통제는 firestore.rules 가 담당한다.
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyAQRLghLUYQ-TOzgbtYHMiAhS48435eiBI',
+    authDomain: 'team-board-fe365.firebaseapp.com',
+    projectId: 'team-board-fe365',
+    storageBucket: 'team-board-fe365.firebasestorage.app',
+    messagingSenderId: '141717162107',
+    appId: '1:141717162107:web:2acf1174d800e60b273ade'
+  };
+  const FIREBASE_VERSION = '10.14.1';
+
+  const Seed = {
+    async rooms() {
+      const s = await Csv.fetch('data/rooms.csv');
+      return s && s.length ? s : DEFAULT_ROOMS;
+    },
+    async announcements() {
+      const s = (await Csv.fetch('data/announcements.csv')) || [];
+      return s.map((a) => ({ ...a, pinned: a.pinned === 'true' }));
+    },
+    async reservations() {
+      return (await Csv.fetch('data/reservations.csv')) || [];
+    }
+  };
+
+  const LocalBackend = {
+    label: '이 기기에만 저장되는 로컬 모드입니다 (다른 기기에서는 보이지 않음).',
+    data: {},
+    listeners: {},
+    async init() {
+      let rooms = Store.load(KEYS.rooms);
+      if (!rooms || !rooms.length) {
+        rooms = await Seed.rooms();
+        Store.save(KEYS.rooms, rooms);
+      }
+      let anns = Store.load(KEYS.announcements);
+      if (!anns) {
+        anns = await Seed.announcements();
+        Store.save(KEYS.announcements, anns);
+      }
+      let res = Store.load(KEYS.reservations);
+      if (!res) res = await Seed.reservations();
+      else if (Store.load(SCHEMA_KEY) !== SCHEMA_VERSION) res = Store.migrateReservations(res, rooms);
+      Store.save(KEYS.reservations, res);
+      Store.save(SCHEMA_KEY, SCHEMA_VERSION);
+      LocalBackend.data = { rooms, announcements: anns, reservations: res };
+    },
+    subscribe(name, cb) {
+      (LocalBackend.listeners[name] = LocalBackend.listeners[name] || []).push(cb);
+      cb(LocalBackend.data[name].slice());
+    },
+    notify(name) {
+      (LocalBackend.listeners[name] || []).forEach((cb) => cb(LocalBackend.data[name].slice()));
+    },
+    async put(name, item) {
+      const list = LocalBackend.data[name];
+      const i = list.findIndex((x) => x.id === item.id);
+      if (i >= 0) list[i] = item; else list.push(item);
+      Store.save(KEYS[name], list);
+      LocalBackend.notify(name);
+    },
+    async remove(name, id) {
+      LocalBackend.data[name] = LocalBackend.data[name].filter((x) => x.id !== id);
+      Store.save(KEYS[name], LocalBackend.data[name]);
+      LocalBackend.notify(name);
+    }
+  };
+
+  const CloudBackend = {
+    label: '공유 DB(Firebase)에 연결되었습니다. 모든 기기에서 같은 데이터가 보입니다.',
+    fs: null,
+    db: null,
+    async init() {
+      const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-`;
+      const [{ initializeApp }, fs] = await Promise.all([import(`${base}app.js`), import(`${base}firestore.js`)]);
+      CloudBackend.fs = fs;
+      CloudBackend.db = fs.getFirestore(initializeApp(FIREBASE_CONFIG));
+      await CloudBackend.seedOnce();
+    },
+    // 최초 1회만 CSV 샘플을 올린다. 문서 ID 가 CSV id 라 동시 실행돼도 중복되지 않는다(멱등).
+    async seedOnce() {
+      const { doc, getDoc, setDoc } = CloudBackend.fs;
+      const flag = doc(CloudBackend.db, 'meta', 'seed');
+      if ((await getDoc(flag)).exists()) return;
+      const seeds = {
+        rooms: await Seed.rooms(),
+        announcements: await Seed.announcements(),
+        reservations: await Seed.reservations()
+      };
+      for (const [name, list] of Object.entries(seeds)) {
+        for (const item of list) {
+          try {
+            await CloudBackend.put(name, item);
+          } catch (e) {
+            // 다른 방문자가 먼저 시드한 문서는 규칙상 덮어쓰기(update)가 거부된다 — 정상.
+            if (e.code !== 'permission-denied') throw e;
+          }
+        }
+      }
+      await setDoc(flag, { seededAt: new Date().toISOString() });
+    },
+    subscribe(name, cb) {
+      const { collection, onSnapshot } = CloudBackend.fs;
+      onSnapshot(
+        collection(CloudBackend.db, name),
+        (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id))),
+        (err) => console.warn(`Firestore 구독 실패(${name}):`, err.code || err.message)
+      );
+    },
+    async put(name, item) {
+      const { id, ...data } = item;
+      await CloudBackend.fs.setDoc(CloudBackend.fs.doc(CloudBackend.db, name, id), data);
+    },
+    async remove(name, id) {
+      await CloudBackend.fs.deleteDoc(CloudBackend.fs.doc(CloudBackend.db, name, id));
+    }
+  };
+
+  let backend = LocalBackend;
+
   /* ---------- 공지 정렬 (순수 함수) ---------- */
   // 규칙: pinned(desc: 고정이 먼저) → createdAt(desc: 최신이 먼저). 동률은 입력 순서 유지(안정 정렬).
   // 입력 배열을 변경하지 않고 새 배열을 반환한다.
@@ -258,17 +383,11 @@
           Util.el('span', { class: 'card__meta', text: `예약자 ${r.owner}` })));
       });
     },
-
-    all() {
-      Render.announcements();
-      Render.roomOptions();
-      Render.reservations();
-    }
   };
 
   /* ---------- 액션 (상태 변경 + 저장) ---------- */
   const Actions = {
-    addAnnouncement(data) {
+    async addAnnouncement(data) {
       const values = {
         title: data.title.trim(), author: data.author.trim(), body: data.body.trim()
       };
@@ -276,39 +395,35 @@
       Object.keys(ANN_RULES).forEach((k) => { if (!values[k]) errors[k] = ANN_RULES[k]; });
       if (Object.keys(errors).length) return errors;
       const { title, author, body } = values;
-      state.announcements.push({
+      await backend.put('announcements', {
         id: Util.uid('a'), title, body, author,
         pinned: !!data.pinned, createdAt: new Date().toISOString()
       });
-      Store.save(KEYS.announcements, state.announcements);
-      Render.announcements();
       return errors;
     },
-    deleteAnnouncement(id) {
+    async deleteAnnouncement(id) {
       const a = state.announcements.find((x) => x.id === id);
       if (!a || !confirm(`"${a.title}" 공지를 삭제할까요?`)) return;
-      state.announcements = state.announcements.filter((x) => x.id !== id);
-      Store.save(KEYS.announcements, state.announcements);
-      Render.announcements();
+      await backend.remove('announcements', id);
     },
-    addReservation(data) {
+    async addReservation(data) {
       const { roomId, date, start, end } = data;
       const owner = data.owner.trim();
       if (!roomId || !date || !start || !end || !owner) return '모든 항목을 입력하세요.';
       if (!isValidRange(start, end)) return '종료 시간은 시작 시간보다 늦어야 합니다.';
       const clash = findConflict(state.reservations, roomId, date, start, end);
       if (clash) return `이미 예약된 시간과 겹칩니다 (${clash.start}~${clash.end}, ${clash.owner}).`;
-      state.reservations.push({ id: Util.uid('v'), roomId, date, start, end, owner });
-      Store.save(KEYS.reservations, state.reservations);
-      Render.reservations();
+      try {
+        await backend.put('reservations', { id: Util.uid('v'), roomId, date, start, end, owner });
+      } catch (e) {
+        return '저장에 실패했습니다. 잠시 후 다시 시도하세요.';
+      }
       return '';
     },
-    deleteReservation(id) {
+    async deleteReservation(id) {
       const r = state.reservations.find((x) => x.id === id);
       if (!r || !confirm(`${Util.roomName(r.roomId)} ${r.date} ${r.start}~${r.end} 예약을 취소할까요?`)) return;
-      state.reservations = state.reservations.filter((x) => x.id !== id);
-      Store.save(KEYS.reservations, state.reservations);
-      Render.reservations();
+      await backend.remove('reservations', id);
     }
   };
 
@@ -326,13 +441,22 @@
         if (first) form.elements[first].focus();
       };
 
-      $('ann-form').addEventListener('submit', (e) => {
+      // 쓰기 실패(네트워크·권한)는 사용자에게 알린다.
+      const notifyFailure = () => alert('저장에 실패했습니다. 네트워크 상태를 확인하고 다시 시도하세요.');
+
+      $('ann-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = e.currentTarget;
         const el = f.elements;
-        const errors = Actions.addAnnouncement({
-          title: el.title.value, author: el.author.value, body: el.body.value, pinned: el.pinned.checked
-        });
+        let errors;
+        try {
+          errors = await Actions.addAnnouncement({
+            title: el.title.value, author: el.author.value, body: el.body.value, pinned: el.pinned.checked
+          });
+        } catch (err) {
+          notifyFailure();
+          return;
+        }
         showAnnErrors(f, errors);
         if (!Object.keys(errors).length) f.reset();
       });
@@ -353,10 +477,10 @@
         if (msg) requestAnimationFrame(() => Util.setText(live, msg));
       };
 
-      $('res-form').addEventListener('submit', (e) => {
+      $('res-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = e.currentTarget;
-        const msg = Actions.addReservation({
+        const msg = await Actions.addReservation({
           roomId: f.roomId.value, date: f.date.value, start: f.start.value, end: f.end.value, owner: f.owner.value
         });
         announceResError(msg);
@@ -368,8 +492,9 @@
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const { action, id } = btn.dataset;
-        if (action === 'delete-announcement') Actions.deleteAnnouncement(id);
-        else if (action === 'delete-reservation') Actions.deleteReservation(id);
+        const task = action === 'delete-announcement' ? Actions.deleteAnnouncement(id)
+          : action === 'delete-reservation' ? Actions.deleteReservation(id) : null;
+        if (task) task.catch(notifyFailure);
       });
 
       const applyFilter = () => {
@@ -389,34 +514,32 @@
 
   /* ---------- 초기화 ---------- */
   async function init() {
-    let rooms = Store.load(KEYS.rooms);
-    if (!rooms || !rooms.length) {
-      const seed = await Csv.fetch('data/rooms.csv');
-      rooms = seed && seed.length ? seed : DEFAULT_ROOMS;
-      Store.save(KEYS.rooms, rooms);
-    }
-    state.rooms = rooms;
-
-    let anns = Store.load(KEYS.announcements);
-    if (!anns) {
-      const seed = (await Csv.fetch('data/announcements.csv')) || [];
-      anns = seed.map((a) => ({ ...a, pinned: a.pinned === 'true' }));
-      Store.save(KEYS.announcements, anns);
-    }
-    state.announcements = anns;
-
-    let res = Store.load(KEYS.reservations);
-    if (!res) {
-      res = (await Csv.fetch('data/reservations.csv')) || [];
-    } else if (Store.load(SCHEMA_KEY) !== SCHEMA_VERSION) {
-      res = Store.migrateReservations(res, state.rooms);
-    }
-    state.reservations = res;
-    Store.save(KEYS.reservations, res);
-    Store.save(SCHEMA_KEY, SCHEMA_VERSION);
-
     Events.bind();
-    Render.all();
+
+    if (FIREBASE_CONFIG) {
+      try {
+        await CloudBackend.init();
+        backend = CloudBackend;
+      } catch (e) {
+        console.warn('Firebase 연결 실패, 로컬 모드로 전환합니다:', e.code || e.message);
+      }
+    }
+    if (backend === LocalBackend) await LocalBackend.init();
+    Util.setText($('backend-status'), backend.label);
+
+    backend.subscribe('rooms', (list) => {
+      state.rooms = list;
+      Render.roomOptions();
+      Render.reservations();
+    });
+    backend.subscribe('announcements', (list) => {
+      state.announcements = list;
+      Render.announcements();
+    });
+    backend.subscribe('reservations', (list) => {
+      state.reservations = list;
+      Render.reservations();
+    });
   }
 
   init();
